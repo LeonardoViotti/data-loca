@@ -13,11 +13,9 @@ How to run the script:
 """
 
 
-
-
-
 import pandas as pd
 import json
+import os
 import argparse
 from pprint import pprint as pp
 
@@ -25,6 +23,7 @@ from pprint import pprint as pp
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("json_file", type=str,  help = 'Path to OpenSoundscape generated JSON file.')
+    parser.add_argument("-o", "--out", type=str, default=None, help = "Path to output file.")
     parser.add_argument("--dry-run", dest="dry_run", action="store_true", default=False, help = "Don't export outputs.")
     parser.add_argument("--prefix", type=str, default=None, help = "Dataset prefix.")
     
@@ -53,6 +52,12 @@ if __name__ == "__main__":
     df_list = []
     for event in event_list:
         # pp(event)
+        
+        # Round numeric columns to 3 decimal places
+        event['tdoas'] = [round(x, 7) for x in event['tdoas']]
+        event['distance_residuals'] = [round(x, 3) for x in event['distance_residuals']]
+        
+        # Convert to DataFrame
         df_e = pd.DataFrame([event])
         df_list.append(df_e)
 
@@ -74,7 +79,7 @@ if __name__ == "__main__":
         df['event_id'] = df["parsed_timestamp"] + '_' + df.index.astype(str).str.zfill(3)
 
 
-    # Cosmetics
+    # Cosmetics -----------------------------------------------------------------------
     df = df.rename(columns={
         'location_estimate': 'position',
         'class_name': 'label',
@@ -92,12 +97,19 @@ if __name__ == "__main__":
         'tdoas', 
         'distance_residuals' ]
     
+    # Output file ---------------------------------------------------------------------
     if prefix is not None:
-        output_file = f'{prefix}_metadata.csv'
+        output_filename = f'{prefix}_localized_events.csv'
     else:
-        output_file = 'metadata.csv'
+        output_filename = 'localized_events.csv'
     
-    df[columns_to_keep].to_csv(output_file, index=False)
+    if args.out is not None:
+        output_filename = os.path.join(args.out, output_filename)
+    
+    if not args.dry_run:
+        df[columns_to_keep].to_csv(output_filename, index=False)
+    else:
+        print(f'Dry run. Would have exported to {output_filename}')
 
 
 
