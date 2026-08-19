@@ -2,7 +2,7 @@
 Run OpenSoundscape acoustic localization tutorial steps and export localized events to JSON.
 https://opensoundscape.org/en/latest/tutorials/acoustic_localization.html
 
-python -i  opso_tutorial.py
+python -i  scripts/opso-tutorial.py
 
 """
 import argparse
@@ -10,6 +10,7 @@ import json
 import os
 import subprocess
 from datetime import datetime, timedelta
+from pprint import pprint
 
 import pandas as pd
 import pytz

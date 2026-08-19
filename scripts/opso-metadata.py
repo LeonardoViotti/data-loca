@@ -23,11 +23,12 @@ from pprint import pprint as pp
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("json_file", type=str,  help = 'Path to OpenSoundscape generated JSON file, or a folder containing several.')
+    parser.add_argument("json_file", type=str,  help = 'Path to OpenSoundscape generated JSON file with localized events, or a folder containing several.')
     parser.add_argument("-o", "--out", type=str, default=None, help = "Path to output file.")
     parser.add_argument("--dry-run", dest="dry_run", action="store_true", default=False, help = "Don't export outputs.")
     parser.add_argument("--prefix", type=str, default=None, help = "Dataset prefix.")
-    
+    parser.add_argument("--create-clips", dest="create_clips", action="store_true", default=False, help = "Extract per-event audio clips into audio/ and write localization_metadata/ tables.")
+
     return parser.parse_args()
 
 # prefix = args.prefix
@@ -93,7 +94,71 @@ if __name__ == "__main__":
     df['x'] = [p[0] for p in df['location_estimate']]
     df['y'] = [p[1] for p in df['location_estimate']]
     df['z'] = [p[2] if len(p) > 2 else None for p in df['location_estimate']]
-    
+
+    # Create clips and localization_metadata tables -----------------------------------
+    if args.create_clips:
+        from opensoundscape import Audio
+
+        out_dir = args.out if args.out is not None else '.'
+        audio_dir = os.path.join(out_dir, 'audio')
+        metadata_dir = os.path.join(out_dir, 'localization_metadata')
+        if not args.dry_run:
+            os.makedirs(audio_dir, exist_ok=True)
+            os.makedirs(metadata_dir, exist_ok=True)
+
+        point_ids = {}
+        point_rows = []
+        audio_rows = []
+        clip_ids = set()
+        new_file_ids = []
+        new_offsets = []
+
+        for _, row in df.iterrows():
+            row_file_ids = []
+            row_offsets = []
+            for orig_path, loc, offset in zip(row['file_ids'], row['receiver_locations'], row['file_start_time_offsets']):
+                loc_key = tuple(round(v, 6) for v in loc)
+                if loc_key not in point_ids:
+                    point_ids[loc_key] = len(point_ids) + 1
+                    point_rows.append({
+                        'point_id': point_ids[loc_key],
+                        'x': loc[0],
+                        'y': loc[1],
+                        'z': loc[2] if len(loc) > 2 else None,
+                    })
+                point_id = point_ids[loc_key]
+
+                card_id = os.path.basename(os.path.dirname(orig_path))
+                stem = os.path.splitext(os.path.basename(orig_path))[0]
+                clip_id = f'{stem}_{offset}s.wav'
+
+                if clip_id not in clip_ids:
+                    clip_ids.add(clip_id)
+                    if not args.dry_run:
+                        Audio.from_file(orig_path, offset=offset, duration=row['duration']).save(os.path.join(audio_dir, clip_id))
+                    audio_rows.append({
+                        'file_id': clip_id,
+                        'relative_path': f'audio/{clip_id}',
+                        'point_id': point_id,
+                        'start_timestamp': row['start_timestamp'],
+                        'card_id': card_id,
+                    })
+
+                row_file_ids.append(clip_id)
+                row_offsets.append(0)
+
+            new_file_ids.append(row_file_ids)
+            new_offsets.append(row_offsets)
+
+        df['file_ids'] = new_file_ids
+        df['file_start_time_offsets'] = new_offsets
+
+        if not args.dry_run:
+            pd.DataFrame(point_rows).to_csv(os.path.join(metadata_dir, 'point_table.csv'), index=False)
+            pd.DataFrame(audio_rows).to_csv(os.path.join(metadata_dir, 'audio_file_table.csv'), index=False)
+        else:
+            print(f'Dry run. Would have exported clips to {audio_dir} and tables to {metadata_dir}')
+
     columns_to_keep = [
         'event_id', 
         'label', 
