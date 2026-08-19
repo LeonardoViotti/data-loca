@@ -16,13 +16,14 @@ How to run the script:
 import pandas as pd
 import json
 import os
+import glob
 import argparse
 from pprint import pprint as pp
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("json_file", type=str,  help = 'Path to OpenSoundscape generated JSON file.')
+    parser.add_argument("json_file", type=str,  help = 'Path to OpenSoundscape generated JSON file, or a folder containing several.')
     parser.add_argument("-o", "--out", type=str, default=None, help = "Path to output file.")
     parser.add_argument("--dry-run", dest="dry_run", action="store_true", default=False, help = "Don't export outputs.")
     parser.add_argument("--prefix", type=str, default=None, help = "Dataset prefix.")
@@ -40,14 +41,17 @@ if __name__ == "__main__":
     
     # Input file -----------------------------------------------------------------------
     json_file = args.json_file
-    # json_file = '/Users/lviotti/Library/CloudStorage/Dropbox/Work/Kitzes/projects/data-loca/localized_events.json'
 
-    with open(json_file, 'r') as f:
-        data = json.load(f)
+    if os.path.isdir(json_file):
+        json_files = sorted(glob.glob(os.path.join(json_file, '*.json')))
+    else:
+        json_files = [json_file]
 
-    # pp(data)
-
-    event_list = data['localized_events']
+    event_list = []
+    for jf in json_files:
+        with open(jf, 'r') as f:
+            data = json.load(f)
+        event_list.extend(data['localized_events'])
 
     df_list = []
     for event in event_list:
