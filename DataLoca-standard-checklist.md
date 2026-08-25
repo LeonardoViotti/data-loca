@@ -89,11 +89,5 @@
 - [ ] All ID fields (`event_id`, `playback_id`, `observed_event_id`, `array_id`) use only alphanumerics and underscores, with fixed length where the spec requires it
 - [ ] Any recorder/round/card keys are used consistently across every table they appear in
 
-## 10. Before release
-
-- [ ] Package validated end-to-end: pick a few events at random and confirm each traces from `localized_events.csv` → `audio_file_table.csv` → the actual file and its `point_id` in `point_table.csv`
-- [ ] Standard version noted (this checklist targets **v0.5**)
-- [ ] (If registering) dataset added to the DataLoca index of compatible datasets
-
 ---
 
