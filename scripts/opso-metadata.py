@@ -100,6 +100,9 @@ if __name__ == "__main__":
         from opensoundscape import Audio
 
         out_dir = args.out if args.out is not None else '.'
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir, exist_ok=True)
+        
         audio_dir = os.path.join(out_dir, 'audio')
         metadata_dir = os.path.join(out_dir, 'localization_metadata')
         if not args.dry_run:
@@ -130,12 +133,17 @@ if __name__ == "__main__":
 
                 card_id = os.path.basename(os.path.dirname(orig_path))
                 stem = os.path.splitext(os.path.basename(orig_path))[0]
-                clip_id = f'{stem}_{offset}s.wav'
+
+                # Pad clip before/after the event (clip can't start before the file)
+                pad = 1
+                clip_offset = max(0, offset - pad)
+                clip_duration = row['duration'] + pad + (offset - clip_offset)
+                clip_id = f'{stem}_{clip_offset}s.wav'
 
                 if clip_id not in clip_ids:
                     clip_ids.add(clip_id)
                     if not args.dry_run:
-                        Audio.from_file(orig_path, offset=offset, duration=row['duration']).save(os.path.join(audio_dir, clip_id))
+                        Audio.from_file(orig_path, offset=clip_offset, duration=clip_duration).save(os.path.join(audio_dir, clip_id))
                     audio_rows.append({
                         'file_id': clip_id,
                         'relative_path': f'audio/{clip_id}',
@@ -145,7 +153,7 @@ if __name__ == "__main__":
                     })
 
                 row_file_ids.append(clip_id)
-                row_offsets.append(0)
+                row_offsets.append(round(offset - clip_offset, 3))
 
             new_file_ids.append(row_file_ids)
             new_offsets.append(row_offsets)
